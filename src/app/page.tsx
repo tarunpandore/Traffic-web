@@ -10,7 +10,11 @@ import {
   ArrowDown,
   ChevronRight,
   Sliders,
-  BellRing
+  BellRing,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Instagram
 } from "lucide-react";
 import InteractiveMap from "@/components/InteractiveMap";
 import SplashScreen from "@/components/SplashScreen";
@@ -265,7 +269,7 @@ export default function Home() {
                 <p className="project-card-desc">
                   Enforcement dispatching targeted exclusively between <strong>5:00 AM and 7:30 AM</strong> to clear overnight chokepoints, restoring full carriageway width before the morning commute.
                 </p>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--accent-yellow)", fontFamily: "var(--font-jetbrains)", fontSize: "0.72rem", letterSpacing: "0.08em", fontWeight: "600", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="project-card-footer">
                   <Zap size={12} />
                   <span>SCHEDULER SERVICE</span>
                   <ChevronRight size={12} style={{ marginLeft: "auto" }} />
@@ -278,7 +282,7 @@ export default function Home() {
                 <p className="project-card-desc">
                   Direct API integrations triggering automated alerts to local police jurisdictions (e.g. Madiwala PS, HSR Layout PS) when repeat offenders park in designated high-severity zones.
                 </p>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--accent-yellow)", fontFamily: "var(--font-jetbrains)", fontSize: "0.72rem", letterSpacing: "0.08em", fontWeight: "600", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="project-card-footer">
                   <Activity size={12} />
                   <span>DISPATCH SYSTEM</span>
                   <ChevronRight size={12} style={{ marginLeft: "auto" }} />
@@ -291,51 +295,61 @@ export default function Home() {
                 <p className="project-card-desc">
                   An interactive planning dashboard that allows urban developers to select hotspots on the map and simulate the percentage increase in vehicle flow velocity upon clearing them.
                 </p>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--accent-yellow)", fontFamily: "var(--font-jetbrains)", fontSize: "0.72rem", letterSpacing: "0.08em", fontWeight: "600", paddingTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="project-card-footer">
                   <Map size={12} />
                   <span>SIMULATION TOOL</span>
                   <ChevronRight size={12} style={{ marginLeft: "auto" }} />
                 </div>
               </div>
             </div>
+
+            {/* Reimagined Minimalist Footer Card (Sloth-Style) */}
+            <div className="reimagined-footer-card">
+              <div className="footer-card-logo-wrap">
+                <Activity size={20} color="var(--accent-yellow)" style={{ filter: "drop-shadow(0 0 4px rgba(251,191,36,0.3))" }} />
+              </div>
+              <h3 className="footer-card-title">Unclog Bengaluru's streets today.</h3>
+              <p className="footer-card-subtitle">
+                Deploy predictive enforcement schedules, simulate road width displacement impact, and integrate real-time telemetry alerts.
+              </p>
+              
+              <div className="footer-card-buttons">
+                <button type="button" className="footer-card-btn-outline" onClick={() => window.location.href = "#analysis"}>
+                  <Sliders size={14} />
+                  View Simulator
+                </button>
+                <button type="button" className="footer-card-btn-solid">
+                  Deploy TraffiX
+                </button>
+              </div>
+
+              <div className="footer-card-divider" />
+
+              <div className="footer-card-bottom">
+                <div className="footer-card-socials">
+                  <a href="https://facebook.com" target="_blank" rel="noreferrer" aria-label="Facebook">
+                    <Facebook size={16} />
+                  </a>
+                  <a href="https://twitter.com" target="_blank" rel="noreferrer" aria-label="X (Twitter)">
+                    <Twitter size={16} />
+                  </a>
+                  <a href="https://linkedin.com" target="_blank" rel="noreferrer" aria-label="LinkedIn">
+                    <Linkedin size={16} />
+                  </a>
+                  <a href="https://instagram.com" target="_blank" rel="noreferrer" aria-label="Instagram">
+                    <Instagram size={16} />
+                  </a>
+                </div>
+                <div className="footer-card-copyright">
+                  Copyright 2026 © TraffiX
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
       </main>
-
-      {/* Footer */}
-      <footer
-        style={{
-          borderTop: "1px solid rgba(255,255,255,0.05)",
-          padding: "3rem 0 2.5rem",
-          background: "var(--bg-surface-lowest)",
-          color: "var(--text-muted)",
-          fontFamily: "var(--font-jetbrains)",
-          fontSize: "0.75rem",
-          position: "relative",
-          zIndex: 20,
-          transition: "background-color 0.8s ease, color 0.8s ease",
-          letterSpacing: "0.04em"
-        }}
-      >
-        <div className="container" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "2rem" }}>
-          <div>
-            <div style={{ color: "var(--accent-yellow)", marginBottom: "0.5rem", fontSize: "0.85rem", fontWeight: "600" }}>TraffiX</div>
-            <div style={{ opacity: 0.5 }}>AI Traffic Intelligence Platform</div>
-            <div style={{ marginTop: "0.5rem", opacity: 0.35 }}>© 2026 ALL RIGHTS RESERVED.</div>
-          </div>
-          <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-            <a href="#solutions" style={{ color: "inherit", textDecoration: "none", opacity: 0.6, transition: "opacity 0.2s" }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "0.6")}
-            >SOLUTIONS</a>
-            <a href="https://github.com" target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none", opacity: 0.6, transition: "opacity 0.2s" }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "0.6")}
-            >GITHUB</a>
-          </div>
-        </div>
-      </footer>
     </>
   );
 }
