@@ -344,7 +344,7 @@ export default function InteractiveMap({ scrollProgress, currentSlide }: Interac
       <div 
         style={{
           position: "absolute",
-          top: "80px",
+          top: "2rem",
           right: "2rem",
           zIndex: 100,
           background: "rgba(10, 14, 23, 0.7)",
@@ -396,7 +396,7 @@ export default function InteractiveMap({ scrollProgress, currentSlide }: Interac
           className="telemetry-card"
           style={{
             position: "absolute",
-            top: "140px",
+            top: "90px",
             left: "2rem",
             zIndex: 1000,
             width: "320px",

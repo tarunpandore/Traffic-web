@@ -76,17 +76,7 @@ export default function Home() {
       {/* Grid Network overlay */}
       <div className="grid-overlay" aria-hidden="true"></div>
 
-      {/* Global Console Nav */}
-      <header className="console-nav">
-        <div className="console-logo">
-          <Zap size={14} color="var(--accent-yellow)" style={{ fill: "var(--accent-yellow)" }} />
-          <span>AURA.PARK.INTEL</span>
-        </div>
-        <div className="console-status">
-          <div className={`status-dot ${currentSlide >= 4 ? "active" : ""}`}></div>
-          <span>{currentSlide >= 4 ? "SOLUTIONS INJECTED" : "SYSTEM MONITORING"}</span>
-        </div>
-      </header>
+
 
       {/* Sticky map container pinned on background */}
       <div 

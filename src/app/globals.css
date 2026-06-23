@@ -570,7 +570,7 @@ body.light-theme .map-poi-label {
 /* Google Maps UI Overlays */
 .map-search-bar {
   position: absolute;
-  top: 80px;
+  top: 2rem;
   left: 2rem;
   z-index: 100;
   width: 320px;
@@ -618,7 +618,7 @@ body.light-theme .map-search-bar {
 /* Map Layer Widget */
 .map-layer-widget {
   position: absolute;
-  top: 80px;
+  top: 2rem;
   right: 20rem; /* sits next to telemetry */
   z-index: 100;
   display: flex;
