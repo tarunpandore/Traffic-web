@@ -261,77 +261,52 @@ export default function InteractiveMap({ scrollProgress, currentSlide, mapReveal
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {/* Search HUD */}
+      {/* Unified Map Control Dock (Search + Layers) */}
       <div
-        className="map-search-bar"
+        className="map-control-dock"
         style={{ opacity: hudOpacity, transition: "opacity 0.5s ease" }}
         onMouseDown={e => e.stopPropagation()}
       >
-        <Search size={16} className="map-search-icon" />
-        <input
-          type="text"
-          placeholder="Search hotspots, roads or POIs..."
-          className="map-search-input"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-        />
-        {searchQuery && (
-          <span title="Reset Map" style={{ display: "inline-flex", cursor: "pointer" }} onClick={handleReset}>
-            <RotateCcw size={14} className="map-search-icon" style={{ marginRight: "4px" }} />
-          </span>
-        )}
-        <Mic size={16} className="map-search-icon" />
-        <div style={{ height: "16px", width: "1px", background: "var(--border-wireframe)" }} />
-        <User size={16} className="map-search-icon" />
+        <div className="dock-search-wrap">
+          <Search size={14} className="dock-icon" />
+          <input
+            type="text"
+            placeholder="Search chokepoints, police stations..."
+            className="dock-input"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button type="button" className="dock-clear-btn" onClick={handleReset} title="Clear search">
+              <RotateCcw size={12} />
+            </button>
+          )}
+        </div>
+        <div className="dock-divider" />
+        <div className="dock-layers">
+          {(["standard", "traffic", "transit"] as const).map(layer => (
+            <button
+              key={layer}
+              type="button"
+              className={`dock-layer-btn ${activeLayer === layer ? "active" : ""}`}
+              onClick={() => setActiveLayer(layer)}
+            >
+              {layer}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Map Layers Widget */}
+      {/* Minimal Telemetry Badge */}
       <div
-        className="map-layer-widget"
-        style={{ opacity: hudOpacity, transition: "opacity 0.5s ease" }}
-        onMouseDown={e => e.stopPropagation()}
-      >
-        {(["standard", "traffic", "transit"] as const).map(layer => (
-          <button
-            key={layer}
-            className={`map-layer-btn ${activeLayer === layer ? "active" : ""}`}
-            onClick={() => setActiveLayer(layer)}
-          >
-            {layer}
-          </button>
-        ))}
-      </div>
-
-      {/* Telemetry overlay */}
-      <div
+        className="map-telemetry-badge"
         style={{
-          position: "absolute", top: "80px", right: "2rem", zIndex: 100,
-          background: "rgba(10, 14, 23, 0.7)", backdropFilter: "blur(10px)",
-          border: "1px solid var(--border-wireframe)", padding: "1rem",
-          fontFamily: "var(--font-jetbrains)", fontSize: "0.75rem",
-          borderRadius: "3px", pointerEvents: "none", width: "250px",
-          opacity: hudOpacity, transition: "opacity 0.5s ease"
+          opacity: hudOpacity,
+          transition: "opacity 0.5s ease"
         }}
       >
-        <div style={{ color: "var(--accent-yellow)", fontWeight: "bold", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-          <Activity size={12} />
-          SYSTEM TELEMETRY
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-          <span>RADAR SWEEP:</span><span style={{ color: "var(--text-primary)" }}>ONLINE</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-          <span>GIS.LATITUDE:</span><span style={{ color: "var(--text-primary)" }}>{cursorPos.x} N</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-          <span>GIS.LONGITUDE:</span><span style={{ color: "var(--text-primary)" }}>{cursorPos.y} E</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-          <span>CLUSTER EPS:</span><span style={{ color: "var(--accent-blue)" }}>150 Meters</span>
-        </div>
-        <div style={{ borderTop: "1px solid var(--border-wireframe)", paddingTop: "0.5rem", color: "var(--text-muted)", fontSize: "0.7rem" }}>
-          * DBSCAN cluster: min_samples=15
-        </div>
+        <span className="telemetry-dot" />
+        <span className="telemetry-txt">SYS_LOC // {cursorPos.x}° N, {cursorPos.y}° E</span>
       </div>
 
       {/* Hotspot info card — shown on hover */}
