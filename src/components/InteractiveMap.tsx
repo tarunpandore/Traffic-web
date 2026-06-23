@@ -1,26 +1,24 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { 
-  MapPin, 
-  Activity, 
-  Search, 
-  Mic, 
-  User, 
-  Plus, 
-  Minus, 
-  Compass, 
-  Layers, 
-  Coffee, 
-  ShoppingBag, 
-  Hospital, 
-  Trees, 
+import React, { useState, useCallback, useMemo, useEffect } from "react";
+import {
+  MapPin,
+  Activity,
+  Search,
+  Mic,
+  User,
+  Plus,
+  Minus,
+  Compass,
+  Coffee,
+  ShoppingBag,
+  Hospital,
+  Trees,
   Train,
-  Info,
   RotateCcw
 } from "lucide-react";
 
-interface HotspotNode {
+export interface HotspotNode {
   id: string;
   name: string;
   lat: number;
@@ -29,7 +27,7 @@ interface HotspotNode {
   impact: number;
   station: string;
   type: "named" | "unnamed";
-  cx: number; // mapped SVG coord
+  cx: number;
   cy: number;
 }
 
@@ -59,8 +57,7 @@ interface BuildingBlock {
   h: number;
 }
 
-// Data extracted/inspired from Jupyter Notebook
-const MAP_NODES: HotspotNode[] = [
+export const MAP_NODES: HotspotNode[] = [
   { id: "h1", name: "BTP082 - KR Market Junction", lat: 12.9647, lon: 77.5768, count: 1842, impact: 5824, station: "Kalasipalya", type: "named", cx: 380, cy: 320 },
   { id: "h2", name: "Unnamed Hotspot #6 (Madiwala)", lat: 12.9224, lon: 77.6212, count: 1420, impact: 4260, station: "Madiwala", type: "unnamed", cx: 620, cy: 580 },
   { id: "h3", name: "BTP058 - Subbanna Junction", lat: 12.9734, lon: 77.6085, count: 980, impact: 3120, station: "Ulsoor", type: "named", cx: 520, cy: 260 },
@@ -94,29 +91,21 @@ const METRO_STATIONS: MetroStation[] = [
 const METRO_PURPLE_PATH = "M 150 300 L 900 300";
 const METRO_GREEN_PATH = "M 380 150 L 380 320 L 300 500 L 250 700";
 
-// Procedural building footprint blocks
+// Generated once — buildings are static, never re-generated
 const generateBuildings = (): BuildingBlock[] => {
   const buildings: BuildingBlock[] = [];
   const sectors = [
-    { xMin: 550, xMax: 660, yMin: 410, yMax: 530 }, // Koramangala
-    { xMin: 700, xMax: 810, yMin: 210, yMax: 350 }, // Indiranagar
-    { xMin: 700, xMax: 850, yMin: 630, yMax: 750 }, // HSR Layout
-    { xMin: 310, xMax: 450, yMin: 250, yMax: 410 }  // CBD / Richmond
+    { xMin: 550, xMax: 660, yMin: 410, yMax: 530 },
+    { xMin: 700, xMax: 810, yMin: 210, yMax: 350 },
+    { xMin: 700, xMax: 850, yMin: 630, yMax: 750 },
+    { xMin: 310, xMax: 450, yMin: 250, yMax: 410 }
   ];
-  
   let idCounter = 0;
   sectors.forEach(s => {
     for (let px = s.xMin; px < s.xMax; px += 24) {
       for (let py = s.yMin; py < s.yMax; py += 18) {
-        // Skip sometimes to create random spacing and organic layout
         if ((px + py) % 3 === 0) continue;
-        buildings.push({
-          id: `b-${idCounter++}`,
-          x: px + 2,
-          y: py + 2,
-          w: 12 + (px % 8),
-          h: 9 + (py % 6)
-        });
+        buildings.push({ id: `b-${idCounter++}`, x: px + 2, y: py + 2, w: 12 + (px % 8), h: 9 + (py % 6) });
       }
     }
   });
@@ -125,7 +114,6 @@ const generateBuildings = (): BuildingBlock[] => {
 
 const BUILDINGS = generateBuildings();
 
-// Detailed roads paths
 const ROAD_HIGHWAYS = [
   { name: "Outer Ring Road (NH 44)", d: "M 100 700 C 300 680, 500 620, 640 630 C 780 640, 850 500, 900 100", speed: "slow" },
   { name: "Hosur Road Expressway", d: "M 380 100 L 380 320 L 480 390 L 620 580 L 640 630 L 700 800", speed: "slow" }
@@ -144,33 +132,25 @@ const ROAD_MAJORS = [
 ];
 
 const ROAD_MINORS = [
-  // Koramangala Grid
   "M 550 420 L 650 420", "M 550 450 L 650 450", "M 550 480 L 650 480", "M 550 510 L 650 510",
   "M 570 400 L 570 530", "M 600 400 L 600 530", "M 630 400 L 630 530",
-  // Indiranagar Grid
   "M 700 220 L 800 220", "M 700 250 L 800 250", "M 700 280 L 800 280", "M 700 310 L 800 310",
   "M 720 200 L 720 340", "M 760 200 L 760 340", "M 780 200 L 780 340",
-  // HSR Layout Grid
   "M 700 640 L 850 640", "M 700 670 L 850 670", "M 700 700 L 850 700", "M 700 730 L 850 730",
   "M 730 620 L 730 760", "M 770 620 L 770 760", "M 810 620 L 810 760",
-  // CBD Grid
   "M 320 280 L 450 280", "M 320 340 L 450 340", "M 320 370 L 450 370",
   "M 350 250 L 350 410", "M 410 250 L 410 410", "M 440 250 L 440 410",
-  // Connectors
   "M 380 320 L 520 260", "M 520 260 L 750 380", "M 600 500 L 620 580"
 ];
 
 interface InteractiveMapProps {
-  scrollProgress: number; // 0 to 1
+  scrollProgress: number;
   currentSlide: number;
+  mapRevealStarted: boolean;
 }
 
-export default function InteractiveMap({ scrollProgress, currentSlide }: InteractiveMapProps) {
+export default function InteractiveMap({ scrollProgress, currentSlide, mapRevealStarted }: InteractiveMapProps) {
   const [hoveredNode, setHoveredNode] = useState<HotspotNode | null>(null);
-  const [hoveredPOI, setHoveredPOI] = useState<POINode | null>(null);
-  const [hoveredRoadName, setHoveredRoadName] = useState<string | null>(null);
-  
-  // HUD states
   const [searchQuery, setSearchQuery] = useState("");
   const [activeLayer, setActiveLayer] = useState<"standard" | "traffic" | "transit">("standard");
   const [manualZoom, setManualZoom] = useState(1.0);
@@ -178,112 +158,103 @@ export default function InteractiveMap({ scrollProgress, currentSlide }: Interac
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Calculate mock lat/long telemetry on the fly during render
+  // Capture reveal once — prevents CSS animation restarts on scroll re-renders
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    if (!mapRevealStarted || revealed) return;
+
+    const revealTimer = window.setTimeout(() => setRevealed(true), 0);
+    return () => window.clearTimeout(revealTimer);
+  }, [mapRevealStarted, revealed]);
+
+  // Returns inline styles for staggered fade-in animations
+  const revealAnim = (delayMs: number, durationMs = 750): React.CSSProperties => ({
+    opacity: 0,
+    ...(revealed && {
+      animation: `fadeInMapEl ${durationMs}ms ease ${delayMs}ms forwards`,
+    }),
+  });
+
   const baseLat = 12.9255 + (scrollProgress * 0.05);
   const baseLon = 77.6186 - (scrollProgress * 0.03);
-  const cursorPos = { 
-    x: parseFloat(baseLat.toFixed(4)), 
-    y: parseFloat(baseLon.toFixed(4)) 
+  const cursorPos = {
+    x: parseFloat(baseLat.toFixed(4)),
+    y: parseFloat(baseLon.toFixed(4))
   };
 
-  const mapGridOpacity = currentSlide === 0 ? 0.3 : currentSlide >= 4 ? 0.05 : 0.6;
-  const roadsOpacity = currentSlide === 0 ? 0.1 : currentSlide >= 4 ? 0.1 : 0.75;
-  const namedNodesOpacity = currentSlide >= 2 ? 0.8 : currentSlide === 1 ? 0.3 : 0;
-  const unnamedNodesOpacity = currentSlide >= 1 ? 0.9 : 0;
-  
-  // Custom camera zoom/pan offsets controlled by scroll/slides
+  const mapGridOpacity = currentSlide <= 1 ? 0.35 : currentSlide >= 5 ? 0.05 : 0.6;
+  const roadsOpacity = currentSlide <= 1 ? 0.25 : currentSlide >= 5 ? 0.1 : 0.75;
+  const namedNodesOpacity = currentSlide >= 3 ? 0.8 : currentSlide === 2 ? 0.3 : 0;
+  const unnamedNodesOpacity = currentSlide >= 2 ? 0.9 : 0;
+
+  // Scroll-driven camera
   let scale = 1.0;
   let translateX = 0;
   let translateY = 0;
-
-  if (currentSlide === 0) {
-    scale = 0.9 + (scrollProgress * 0.1);
-  } else if (currentSlide === 1) {
-    scale = 1.45;
-    translateX = -120;
-    translateY = -150;
+  if (currentSlide <= 1) {
+    scale = 0.95 + (scrollProgress * 0.08);
   } else if (currentSlide === 2) {
-    scale = 1.6;
-    translateX = -180;
-    translateY = -220;
+    scale = 1.45; translateX = -120; translateY = -150;
   } else if (currentSlide === 3) {
-    scale = 1.25;
-    translateX = -60;
-    translateY = -50;
-  } else if (currentSlide >= 4) {
+    scale = 1.6; translateX = -180; translateY = -220;
+  } else if (currentSlide === 4) {
+    scale = 1.25; translateX = -60; translateY = -50;
+  } else if (currentSlide >= 5) {
     scale = 0.8;
-    translateX = 0;
-    translateY = 0;
   }
 
-  // Multiply manual zoom & pan on top of default story layout
   const finalScale = scale * manualZoom;
   const finalTranslateX = translateX + (manualPan.x / finalScale);
   const finalTranslateY = translateY + (manualPan.y / finalScale);
 
-  // Mouse drag pan handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - manualPan.x, y: e.clientY - manualPan.y });
-  };
+  }, [manualPan]);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isDragging) return;
-    setManualPan({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
-    });
-  };
+    setManualPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  }, [isDragging, dragStart]);
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  const handleMouseUp = useCallback(() => setIsDragging(false), []);
 
   const handleZoomIn = () => setManualZoom(z => Math.min(z + 0.15, 3.0));
   const handleZoomOut = () => setManualZoom(z => Math.max(z - 0.15, 0.5));
-  const handleReset = () => {
-    setManualZoom(1.0);
-    setManualPan({ x: 0, y: 0 });
-    setSearchQuery("");
-  };
+  const handleReset = () => { setManualZoom(1.0); setManualPan({ x: 0, y: 0 }); setSearchQuery(""); };
 
-  // POI Icons helper
   const renderPoiIcon = (type: string) => {
     switch (type) {
-      case "food":
-        return <Coffee size={10} color="#ffffff" style={{ display: "block" }} />;
-      case "shopping":
-        return <ShoppingBag size={10} color="#ffffff" style={{ display: "block" }} />;
-      case "medical":
-        return <Hospital size={10} color="#ffffff" style={{ display: "block" }} />;
-      case "park":
-        return <Trees size={10} color="#ffffff" style={{ display: "block" }} />;
-      case "transit":
-        return <Train size={10} color="#ffffff" style={{ display: "block" }} />;
-      default:
-        return <MapPin size={10} color="#ffffff" style={{ display: "block" }} />;
+      case "food": return <Coffee size={10} color="#ffffff" style={{ display: "block" }} />;
+      case "shopping": return <ShoppingBag size={10} color="#ffffff" style={{ display: "block" }} />;
+      case "medical": return <Hospital size={10} color="#ffffff" style={{ display: "block" }} />;
+      case "park": return <Trees size={10} color="#ffffff" style={{ display: "block" }} />;
+      case "transit": return <Train size={10} color="#ffffff" style={{ display: "block" }} />;
+      default: return <MapPin size={10} color="#ffffff" style={{ display: "block" }} />;
     }
   };
 
-  // Filter nodes & POIs based on search query
   const matchesSearch = (text: string) => {
     if (!searchQuery) return true;
     return text.toLowerCase().includes(searchQuery.toLowerCase());
   };
 
-  // Colors for traffic density
   const getTrafficColor = (speed: string) => {
     if (activeLayer !== "traffic") return undefined;
-    switch (speed) {
-      case "slow": return "var(--accent-rose)";
-      case "moderate": return "var(--accent-yellow)";
-      case "fast": return "#10b981";
-      default: return undefined;
-    }
+    if (speed === "slow") return "var(--accent-rose)";
+    if (speed === "moderate") return "var(--accent-yellow)";
+    return "#10b981";
   };
 
+  // Memoize building rects — purely static, never changes
+  const buildingRects = useMemo(() => BUILDINGS.map(b => (
+    <rect key={b.id} x={b.x} y={b.y} width={b.w} height={b.h} className="map-building" rx="1.5" />
+  )), []);
+
+  const hudOpacity = currentSlide === 0 || currentSlide >= 4 ? 0 : 1;
+
   return (
-    <div 
+    <div
       style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -291,15 +262,15 @@ export default function InteractiveMap({ scrollProgress, currentSlide }: Interac
       onMouseLeave={handleMouseUp}
     >
       {/* Search HUD */}
-      <div 
-        className="map-search-bar" 
-        style={{ opacity: currentSlide >= 4 ? 0 : 1 }}
-        onMouseDown={e => e.stopPropagation()} // Prevent dragging from input click
+      <div
+        className="map-search-bar"
+        style={{ opacity: hudOpacity, transition: "opacity 0.5s ease" }}
+        onMouseDown={e => e.stopPropagation()}
       >
         <Search size={16} className="map-search-icon" />
-        <input 
-          type="text" 
-          placeholder="Search hotspots, roads or POIs..." 
+        <input
+          type="text"
+          placeholder="Search hotspots, roads or POIs..."
           className="map-search-input"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
@@ -310,347 +281,198 @@ export default function InteractiveMap({ scrollProgress, currentSlide }: Interac
           </span>
         )}
         <Mic size={16} className="map-search-icon" />
-        <div style={{ height: "16px", width: "1px", background: "var(--border-wireframe)" }}></div>
+        <div style={{ height: "16px", width: "1px", background: "var(--border-wireframe)" }} />
         <User size={16} className="map-search-icon" />
       </div>
 
       {/* Map Layers Widget */}
-      <div 
-        className="map-layer-widget" 
-        style={{ opacity: currentSlide >= 4 ? 0 : 1 }}
+      <div
+        className="map-layer-widget"
+        style={{ opacity: hudOpacity, transition: "opacity 0.5s ease" }}
         onMouseDown={e => e.stopPropagation()}
       >
-        <button 
-          className={`map-layer-btn ${activeLayer === "standard" ? "active" : ""}`}
-          onClick={() => setActiveLayer("standard")}
-        >
-          Standard
-        </button>
-        <button 
-          className={`map-layer-btn ${activeLayer === "traffic" ? "active" : ""}`}
-          onClick={() => setActiveLayer("traffic")}
-        >
-          Traffic
-        </button>
-        <button 
-          className={`map-layer-btn ${activeLayer === "transit" ? "active" : ""}`}
-          onClick={() => setActiveLayer("transit")}
-        >
-          Transit
-        </button>
+        {(["standard", "traffic", "transit"] as const).map(layer => (
+          <button
+            key={layer}
+            className={`map-layer-btn ${activeLayer === layer ? "active" : ""}`}
+            onClick={() => setActiveLayer(layer)}
+          >
+            {layer}
+          </button>
+        ))}
       </div>
 
-      {/* Top console telemetry overlay */}
-      <div 
+      {/* Telemetry overlay */}
+      <div
         style={{
-          position: "absolute",
-          top: "2rem",
-          right: "2rem",
-          zIndex: 100,
-          background: "rgba(10, 14, 23, 0.7)",
-          backdropFilter: "blur(10px)",
-          border: "1px solid var(--border-wireframe)",
-          padding: "1rem",
-          fontFamily: "var(--font-jetbrains)",
-          fontSize: "0.75rem",
-          borderRadius: "3px",
-          pointerEvents: "none",
-          width: "250px",
-          transition: "opacity 0.5s ease",
-          opacity: currentSlide >= 4 ? 0 : 1
+          position: "absolute", top: "80px", right: "2rem", zIndex: 100,
+          background: "rgba(10, 14, 23, 0.7)", backdropFilter: "blur(10px)",
+          border: "1px solid var(--border-wireframe)", padding: "1rem",
+          fontFamily: "var(--font-jetbrains)", fontSize: "0.75rem",
+          borderRadius: "3px", pointerEvents: "none", width: "250px",
+          opacity: hudOpacity, transition: "opacity 0.5s ease"
         }}
       >
         <div style={{ color: "var(--accent-yellow)", fontWeight: "bold", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-          <Activity size={12} className="status-dot active" />
+          <Activity size={12} />
           SYSTEM TELEMETRY
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-          <span>RADAR SWEEP:</span>
-          <span style={{ color: "var(--text-primary)" }}>ONLINE</span>
+          <span>RADAR SWEEP:</span><span style={{ color: "var(--text-primary)" }}>ONLINE</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-          <span>GIS.LATITUDE:</span>
-          <span style={{ color: "var(--text-primary)" }}>{cursorPos.x} N</span>
+          <span>GIS.LATITUDE:</span><span style={{ color: "var(--text-primary)" }}>{cursorPos.x} N</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-          <span>GIS.LONGITUDE:</span>
-          <span style={{ color: "var(--text-primary)" }}>{cursorPos.y} E</span>
+          <span>GIS.LONGITUDE:</span><span style={{ color: "var(--text-primary)" }}>{cursorPos.y} E</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-          <span>CLUSTER EPS:</span>
-          <span style={{ color: "var(--accent-blue)" }}>150 Meters</span>
+          <span>CLUSTER EPS:</span><span style={{ color: "var(--accent-blue)" }}>150 Meters</span>
         </div>
-        {hoveredRoadName && (
-          <div style={{ borderTop: "1px solid var(--border-wireframe)", paddingTop: "0.5rem", marginBottom: "0.5rem", color: "var(--accent-yellow)" }}>
-            <span>ROAD: {hoveredRoadName.toUpperCase()}</span>
-          </div>
-        )}
-        <div style={{ borderTop: hoveredRoadName ? "none" : "1px solid var(--border-wireframe)", paddingTop: hoveredRoadName ? 0 : "0.5rem", color: "var(--text-muted)", fontSize: "0.7rem" }}>
+        <div style={{ borderTop: "1px solid var(--border-wireframe)", paddingTop: "0.5rem", color: "var(--text-muted)", fontSize: "0.7rem" }}>
           * DBSCAN cluster: min_samples=15
         </div>
       </div>
 
-      {/* Floating Detailed Place Card (Google Maps Style, left aligned) */}
-      {(hoveredNode || hoveredPOI) && !searchQuery && (
-        <div 
+      {/* Hotspot info card — shown on hover */}
+      {hoveredNode && (
+        <div
           className="telemetry-card"
           style={{
-            position: "absolute",
-            top: "90px",
-            left: "2rem",
-            zIndex: 1000,
-            width: "320px",
-            background: "rgba(9, 13, 22, 0.95)",
+            position: "absolute", top: "140px", left: "2rem", zIndex: 1000,
+            width: "300px", background: "rgba(9, 13, 22, 0.95)",
             backdropFilter: "blur(20px)",
-            border: `1px solid ${
-              hoveredPOI 
-                ? hoveredPOI.color 
-                : hoveredNode?.type === "unnamed" 
-                  ? "var(--accent-rose)" 
-                  : "var(--accent-yellow)"
-            }`,
-            boxShadow: hoveredPOI 
-              ? `0 10px 30px ${hoveredPOI.color}22`
-              : hoveredNode?.type === "unnamed" 
-                ? "0 10px 30px rgba(244,63,94,0.18)" 
-                : "0 10px 30px rgba(251,191,36,0.12)",
-            borderRadius: "4px",
-            padding: "1.25rem",
+            border: `1px solid ${hoveredNode.type === "unnamed" ? "var(--accent-rose)" : "var(--accent-yellow)"}`,
+            boxShadow: hoveredNode.type === "unnamed"
+              ? "0 10px 30px rgba(244,63,94,0.18)"
+              : "0 10px 30px rgba(251,191,36,0.12)",
+            borderRadius: "4px", padding: "1.25rem",
             pointerEvents: "none",
-            transition: "opacity 0.3s ease",
-            opacity: currentSlide >= 4 ? 0 : 1
+            opacity: hudOpacity, transition: "opacity 0.3s ease"
           }}
         >
-          {hoveredPOI ? (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                <span 
-                  style={{ 
-                    display: "inline-flex", 
-                    alignItems: "center", 
-                    justifyContent: "center", 
-                    width: "20px", 
-                    height: "20px", 
-                    borderRadius: "50%", 
-                    background: hoveredPOI.color 
-                  }}
-                >
-                  {renderPoiIcon(hoveredPOI.type)}
-                </span>
-                <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-jetbrains)", textTransform: "uppercase", color: "var(--text-muted)" }}>
-                  {hoveredPOI.type} POI
-                </span>
-              </div>
-              <h4 style={{ fontSize: "1.1rem", fontWeight: 400, marginBottom: "0.4rem", color: "var(--text-primary)" }}>{hoveredPOI.name}</h4>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.8rem", color: "var(--accent-yellow)", marginBottom: "0.75rem" }}>
-                <span>★ {hoveredPOI.rating}</span>
-                <span style={{ color: "var(--text-muted)" }}>(Local Guide Rating)</span>
-              </div>
-              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: "1.4", borderTop: "1px solid var(--border-wireframe)", paddingTop: "0.6rem" }}>
-                {hoveredPOI.details}
-              </p>
-            </>
-          ) : hoveredNode ? (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                <MapPin size={16} color={hoveredNode.type === "unnamed" ? "var(--accent-rose)" : "var(--accent-yellow)"} />
-                <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-jetbrains)", textTransform: "uppercase", color: "var(--text-muted)" }}>
-                  {hoveredNode.type === "unnamed" ? "DBSCAN Cluster Node" : "Tagged Road Junction"}
-                </span>
-              </div>
-              <h4 style={{ fontSize: "1rem", fontWeight: 400, marginBottom: "0.75rem", color: "var(--text-primary)" }}>{hoveredNode.name}</h4>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem", borderTop: "1px solid var(--border-wireframe)", paddingTop: "0.75rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--text-muted)" }}>Violations:</span>
-                  <strong style={{ fontFamily: "var(--font-jetbrains)", color: "var(--text-primary)" }}>{hoveredNode.count}</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--text-muted)" }}>Road Displacement:</span>
-                  <strong style={{ fontFamily: "var(--font-jetbrains)", color: hoveredNode.type === "unnamed" ? "var(--accent-rose)" : "var(--accent-yellow)" }}>
-                    {hoveredNode.impact} pts
-                  </strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--text-muted)" }}>Jurisdiction:</span>
-                  <span style={{ color: "var(--text-primary)" }}>{hoveredNode.station} PS</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--text-muted)" }}>Coords:</span>
-                  <span style={{ fontFamily: "var(--font-jetbrains)", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                    {hoveredNode.lat}, {hoveredNode.lon}
-                  </span>
-                </div>
-              </div>
-            </>
-          ) : null}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+            <MapPin size={16} color={hoveredNode.type === "unnamed" ? "var(--accent-rose)" : "var(--accent-yellow)"} />
+            <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-jetbrains)", textTransform: "uppercase", color: "var(--text-muted)" }}>
+              {hoveredNode.type === "unnamed" ? "DBSCAN Cluster Node" : "Tagged Road Junction"}
+            </span>
+          </div>
+          <h4 style={{ fontSize: "1rem", fontWeight: 400, marginBottom: "0.75rem", color: "var(--text-primary)" }}>{hoveredNode.name}</h4>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem", borderTop: "1px solid var(--border-wireframe)", paddingTop: "0.75rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--text-muted)" }}>Violations:</span>
+              <strong style={{ fontFamily: "var(--font-jetbrains)", color: "var(--text-primary)" }}>{hoveredNode.count}</strong>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--text-muted)" }}>Road Displacement:</span>
+              <strong style={{ fontFamily: "var(--font-jetbrains)", color: hoveredNode.type === "unnamed" ? "var(--accent-rose)" : "var(--accent-yellow)" }}>
+                {hoveredNode.impact} pts
+              </strong>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--text-muted)" }}>Jurisdiction:</span>
+              <span style={{ color: "var(--text-primary)" }}>{hoveredNode.station} PS</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--text-muted)" }}>Coords:</span>
+              <span style={{ fontFamily: "var(--font-jetbrains)", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                {hoveredNode.lat}, {hoveredNode.lon}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Floating Zoom & Compass Controls */}
-      <div 
-        className="map-zoom-widget" 
-        style={{ opacity: currentSlide >= 4 ? 0 : 1 }}
+      {/* Zoom Controls */}
+      <div
+        className="map-zoom-widget"
+        style={{ opacity: hudOpacity, transition: "opacity 0.5s ease" }}
         onMouseDown={e => e.stopPropagation()}
       >
-        <button className="map-zoom-btn" onClick={handleZoomIn} title="Zoom In">
-          <Plus size={16} />
-        </button>
-        <button className="map-zoom-btn" onClick={handleZoomOut} title="Zoom Out">
-          <Minus size={16} />
-        </button>
-        <div style={{ height: "1px", background: "var(--border-wireframe)", margin: "0 4px" }}></div>
-        <button className="map-zoom-btn" onClick={handleReset} title="Reset View">
-          <Compass size={16} className="animate-spin-slow" />
-        </button>
+        <button className="map-zoom-btn" onClick={handleZoomIn} title="Zoom In"><Plus size={16} /></button>
+        <button className="map-zoom-btn" onClick={handleZoomOut} title="Zoom Out"><Minus size={16} /></button>
+        <div style={{ height: "1px", background: "var(--border-wireframe)", margin: "0 4px" }} />
+        <button className="map-zoom-btn" onClick={handleReset} title="Reset View"><Compass size={16} /></button>
       </div>
 
-      {/* Traffic Legend Widget */}
-      <div 
-        className="map-legend-widget" 
-        style={{ 
-          opacity: currentSlide >= 4 || activeLayer !== "traffic" ? 0 : 1,
+      {/* Traffic Legend */}
+      <div
+        className="map-legend-widget"
+        style={{
+          opacity: hudOpacity === 0 || activeLayer !== "traffic" ? 0 : 1,
           pointerEvents: activeLayer === "traffic" ? "auto" : "none",
           transition: "opacity 0.4s ease"
         }}
         onMouseDown={e => e.stopPropagation()}
       >
         <div className="map-legend-title">Live Traffic Index</div>
-        <div className="map-legend-bar"></div>
+        <div className="map-legend-bar" />
         <div className="map-legend-labels">
-          <span>Fast</span>
-          <span>Moderate</span>
-          <span>Heavy</span>
+          <span>Fast</span><span>Moderate</span><span>Heavy</span>
         </div>
       </div>
 
-      {/* SVG Canvas Map */}
-      <svg 
+      {/* SVG Map Canvas */}
+      <svg
         className="map-svg"
         viewBox="0 0 1000 800"
         style={{
-          transition: isDragging ? "none" : "transform 1.2s cubic-bezier(0.16, 1, 0.3, 1)",
+          willChange: "transform",
           transform: `scale(${finalScale}) translate(${finalTranslateX}px, ${finalTranslateY}px)`,
+          transition: isDragging ? "none" : "transform 1.2s cubic-bezier(0.16, 1, 0.3, 1)",
           cursor: isDragging ? "grabbing" : "grab"
         }}
       >
-        {/* Spatial Grid overlay in SVG */}
+        {/* Grid */}
         <defs>
           <pattern id="mapGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--border-wireframe)" strokeWidth="0.5" opacity={mapGridOpacity} style={{ transition: "opacity 0.8s ease" }} />
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--border-wireframe)" strokeWidth="0.5" opacity={mapGridOpacity} />
           </pattern>
         </defs>
         <rect width="1000" height="800" fill="url(#mapGrid)" />
 
-        {/* ================= GEOGRAPHICAL LAYERS ================= */}
-        
-        {/* Water Bodies (Lakes) */}
-        <g id="lakes">
-          {/* Ulsoor Lake */}
-          <path 
-            className="map-water"
-            d="M 520 220 C 530 200, 560 190, 580 200 C 600 210, 620 200, 630 220 C 640 240, 620 260, 600 270 C 580 280, 550 270, 530 260 Z"
-          >
-            <title>Ulsoor Lake</title>
-          </path>
-          {/* Madiwala Lake */}
-          <path 
-            className="map-water"
-            d="M 530 670 C 550 650, 580 660, 600 680 C 620 700, 610 730, 590 740 C 570 750, 540 730, 520 710 Z"
-          >
-            <title>Madiwala Lake</title>
-          </path>
-          {/* Bellandur Lake */}
-          <path 
-            className="map-water"
-            d="M 820 570 C 850 540, 900 550, 930 580 C 950 600, 940 630, 900 640 C 860 650, 830 620, 810 590 Z"
-          >
-            <title>Bellandur Lake</title>
-          </path>
-          {/* Sankey Tank */}
-          <path 
-            className="map-water"
-            d="M 220 180 C 240 170, 270 175, 280 190 C 290 205, 275 220, 255 225 C 235 230, 215 210, 210 195 Z"
-          >
-            <title>Sankey Tank</title>
-          </path>
+        {/* WATER — no hover, no pointer events */}
+        <g id="lakes" style={{ pointerEvents: "none", ...revealAnim(2000, 1000) }}>
+          <path className="map-water" d="M 520 220 C 530 200, 560 190, 580 200 C 600 210, 620 200, 630 220 C 640 240, 620 260, 600 270 C 580 280, 550 270, 530 260 Z"><title>Ulsoor Lake</title></path>
+          <path className="map-water" d="M 530 670 C 550 650, 580 660, 600 680 C 620 700, 610 730, 590 740 C 570 750, 540 730, 520 710 Z"><title>Madiwala Lake</title></path>
+          <path className="map-water" d="M 820 570 C 850 540, 900 550, 930 580 C 950 600, 940 630, 900 640 C 860 650, 830 620, 810 590 Z"><title>Bellandur Lake</title></path>
+          <path className="map-water" d="M 220 180 C 240 170, 270 175, 280 190 C 290 205, 275 220, 255 225 C 235 230, 215 210, 210 195 Z"><title>Sankey Tank</title></path>
         </g>
 
-        {/* Green Spaces (Parks) */}
-        <g id="parks">
-          {/* Cubbon Park */}
-          <path 
-            className="map-park"
-            d="M 420 340 C 440 310, 480 290, 510 320 C 530 340, 500 380, 470 390 C 445 400, 415 375, 410 355 Z"
-          >
-            <title>Cubbon Park</title>
-          </path>
-          {/* Lalbagh Botanical Gardens */}
-          <path 
-            className="map-park"
-            d="M 400 480 C 430 460, 460 470, 470 495 C 480 520, 460 550, 430 560 C 400 570, 380 535, 385 505 Z"
-          >
-            <title>Lalbagh Botanical Gardens</title>
-          </path>
-          {/* Koramangala Valley Park */}
-          <path 
-            className="map-park"
-            d="M 670 480 Q 690 460, 710 490 T 670 510 Z"
-          >
-            <title>Koramangala Valley Park</title>
-          </path>
+        {/* PARKS — no hover, no pointer events */}
+        <g id="parks" style={{ pointerEvents: "none", ...revealAnim(2200, 1000) }}>
+          <path className="map-park" d="M 420 340 C 440 310, 480 290, 510 320 C 530 340, 500 380, 470 390 C 445 400, 415 375, 410 355 Z"><title>Cubbon Park</title></path>
+          <path className="map-park" d="M 400 480 C 430 460, 460 470, 470 495 C 480 520, 460 550, 430 560 C 400 570, 380 535, 385 505 Z"><title>Lalbagh Botanical Gardens</title></path>
+          <path className="map-park" d="M 670 480 Q 690 460, 710 490 T 670 510 Z"><title>Koramangala Valley Park</title></path>
         </g>
 
-        {/* Procedural Building Blocks */}
-        <g id="buildings" opacity={currentSlide >= 3 ? 0.3 : 0.6}>
-          {BUILDINGS.map(b => (
-            <rect 
-              key={b.id}
-              x={b.x}
-              y={b.y}
-              width={b.w}
-              height={b.h}
-              className="map-building"
-              rx="1.5"
-            />
-          ))}
+        {/* BUILDINGS — static, no hover, no pointer events */}
+        <g id="buildings" opacity={currentSlide >= 3 ? 0.3 : 0.6} style={{ pointerEvents: "none", ...revealAnim(2400, 800) }}>
+          {buildingRects}
         </g>
 
-
-        {/* ================= STREETS & HIGHWAYS NETWORK ================= */}
-        
+        {/* ROADS */}
         <g opacity={roadsOpacity} style={{ transition: "opacity 0.8s ease" }}>
-          {/* Minor Street Grid Lines */}
-          <g id="minor-roads">
-            {ROAD_MINORS.map((d, index) => (
-              <path 
-                key={`minor-${index}`}
-                d={d}
-                fill="none"
-                className="map-road-minor"
-                strokeWidth="1.2"
-              />
+          {/* Minor streets — no hover */}
+          <g id="minor-roads" style={{ pointerEvents: "none" }}>
+            {ROAD_MINORS.map((d, i) => (
+              <path key={i} d={d} fill="none" className="map-road-minor" strokeWidth="1.2"
+                style={revealAnim(600 + i * 20)} />
             ))}
           </g>
 
-          {/* Major Arterial Roads */}
-          <g id="major-roads">
-            {ROAD_MAJORS.map((road) => {
+          {/* Major roads — no road hover, traffic color only */}
+          <g id="major-roads" style={{ pointerEvents: "none" }}>
+            {ROAD_MAJORS.map((road, idx) => {
+              const tc = getTrafficColor(road.speed);
               const matches = matchesSearch(road.name);
-              const trafficColor = getTrafficColor(road.speed);
               return (
-                <g key={road.name} onMouseEnter={() => setHoveredRoadName(road.name)} onMouseLeave={() => setHoveredRoadName(null)}>
-                  {/* Hover Zone trigger */}
-                  <path 
-                    d={road.d} 
-                    className="map-road-hover-zone"
-                  />
-                  {/* Rendered Road Path */}
-                  <path 
-                    d={road.d} 
-                    fill="none" 
-                    className="map-road-major" 
-                    stroke={trafficColor || "rgba(255,255,255,0.18)"}
+                <g key={road.name} style={revealAnim(300 + idx * 60)}>
+                  <path
+                    d={road.d}
+                    fill="none"
+                    className="map-road-major"
+                    stroke={tc || "rgba(255,255,255,0.18)"}
                     strokeWidth="2.8"
                     opacity={matches ? 1 : 0.25}
                     style={{ transition: "stroke 0.4s ease, opacity 0.4s ease" }}
@@ -660,110 +482,34 @@ export default function InteractiveMap({ scrollProgress, currentSlide }: Interac
             })}
           </g>
 
-          {/* Highways (Dual Carriageway style) */}
-          <g id="highways">
-            {ROAD_HIGHWAYS.map((road) => {
+          {/* Highways — no road hover, traffic color only */}
+          <g id="highways" style={{ pointerEvents: "none" }}>
+            {ROAD_HIGHWAYS.map((road, idx) => {
+              const tc = getTrafficColor(road.speed);
               const matches = matchesSearch(road.name);
-              const trafficColor = getTrafficColor(road.speed);
               return (
-                <g key={road.name} onMouseEnter={() => setHoveredRoadName(road.name)} onMouseLeave={() => setHoveredRoadName(null)}>
-                  {/* Hover Zone trigger */}
-                  <path 
-                    d={road.d} 
-                    className="map-road-hover-zone"
-                  />
-                  {/* Underlay glow */}
-                  <path 
-                    d={road.d} 
-                    fill="none" 
-                    className="map-road-highway-bg" 
-                    strokeWidth="8.5"
-                    opacity={matches ? 1 : 0.25}
-                  />
-                  {/* Base dual lane outline */}
-                  <path 
-                    d={road.d} 
-                    fill="none" 
-                    className="map-road-highway" 
-                    stroke={trafficColor || "var(--map-road-highway)"}
-                    strokeWidth="4.5"
-                    opacity={matches ? 1 : 0.25}
-                    style={{ transition: "stroke 0.4s ease, opacity 0.4s ease" }}
-                  />
-                  {/* Central divider line */}
-                  <path 
-                    d={road.d} 
-                    fill="none" 
-                    stroke="#090D16" 
-                    strokeWidth="0.8" 
-                    strokeDasharray="2 3"
-                    opacity={matches ? 0.7 : 0.15}
-                  />
+                <g key={road.name} style={revealAnim(idx * 100, 1000)}>
+                  <path d={road.d} fill="none" className="map-road-highway-bg" strokeWidth="8.5" opacity={matches ? 1 : 0.25} />
+                  <path d={road.d} fill="none" className="map-road-highway" stroke={tc || "var(--map-road-highway)"} strokeWidth="4.5" opacity={matches ? 1 : 0.25} style={{ transition: "stroke 0.4s ease" }} />
+                  <path d={road.d} fill="none" stroke="#090D16" strokeWidth="0.8" strokeDasharray="2 3" opacity={matches ? 0.7 : 0.15} />
                 </g>
               );
             })}
           </g>
         </g>
 
-
-        {/* ================= METRO TRANSIT LAYER ================= */}
-        
+        {/* METRO TRANSIT LAYER — no hover on stations */}
         {activeLayer === "transit" && (
-          <g id="transit-layer" style={{ animation: "fadeIn 0.5s ease" }}>
-            {/* Purple Line */}
-            <path 
-              d={METRO_PURPLE_PATH}
-              fill="none"
-              className="map-metro-line-underlay"
-              strokeWidth="5"
-            />
-            <path 
-              d={METRO_PURPLE_PATH}
-              fill="none"
-              className="map-metro-line"
-              strokeWidth="2.5"
-              style={{ stroke: "#a855f7" }}
-            />
-            
-            {/* Green Line */}
-            <path 
-              d={METRO_GREEN_PATH}
-              fill="none"
-              className="map-metro-line-underlay"
-              strokeWidth="5"
-            />
-            <path 
-              d={METRO_GREEN_PATH}
-              fill="none"
-              className="map-metro-line"
-              strokeWidth="2.5"
-              style={{ stroke: "#22c55e" }}
-            />
-
-            {/* Station Markers */}
-            {METRO_STATIONS.map((station) => (
-              <g key={station.name} style={{ cursor: "pointer" }}>
-                <circle 
-                  cx={station.cx} 
-                  cy={station.cy} 
-                  r="6" 
-                  className="map-metro-station"
-                  style={{ stroke: station.line === "purple" ? "#a855f7" : "#22c55e" }}
-                />
-                <circle 
-                  cx={station.cx} 
-                  cy={station.cy} 
-                  r="2" 
-                  fill="#ffffff"
-                />
-                <text 
-                  x={station.cx + 8} 
-                  y={station.cy + 3} 
-                  fill="var(--text-secondary)" 
-                  fontFamily="var(--font-jetbrains)" 
-                  fontSize="7" 
-                  fontWeight="bold"
-                >
+          <g id="transit-layer" style={{ pointerEvents: "none" }}>
+            <path d={METRO_PURPLE_PATH} fill="none" className="map-metro-line-underlay" strokeWidth="5" />
+            <path d={METRO_PURPLE_PATH} fill="none" className="map-metro-line" strokeWidth="2.5" style={{ stroke: "#a855f7" }} />
+            <path d={METRO_GREEN_PATH} fill="none" className="map-metro-line-underlay" strokeWidth="5" />
+            <path d={METRO_GREEN_PATH} fill="none" className="map-metro-line" strokeWidth="2.5" style={{ stroke: "#22c55e" }} />
+            {METRO_STATIONS.map(station => (
+              <g key={station.name}>
+                <circle cx={station.cx} cy={station.cy} r="6" className="map-metro-station" style={{ stroke: station.line === "purple" ? "#a855f7" : "#22c55e" }} />
+                <circle cx={station.cx} cy={station.cy} r="2" fill="#ffffff" />
+                <text x={station.cx + 8} y={station.cy + 3} fill="var(--text-secondary)" fontFamily="var(--font-jetbrains)" fontSize="7" fontWeight="bold">
                   {station.name.replace(" Station", "").replace(" Interchange", " Interchange M")}
                 </text>
               </g>
@@ -771,66 +517,65 @@ export default function InteractiveMap({ scrollProgress, currentSlide }: Interac
           </g>
         )}
 
-
-        {/* ================= DYNAMIC TRAFFIC SEVERITY HEAT HALOS ================= */}
-        
+        {/* HEAT HALOS */}
         {currentSlide >= 2 && currentSlide < 4 && (
-          <g id="hotspot-halos" style={{ transition: "opacity 0.5s ease" }}>
-            {MAP_NODES.map((node) => {
-              const scaleFactor = node.impact / 5824;
+          <g id="hotspot-halos" style={{ pointerEvents: "none" }}>
+            {MAP_NODES.map(node => {
+              const sf = node.impact / 5824;
               return (
-                <circle 
+                <circle
                   key={`halo-${node.id}`}
-                  cx={node.cx}
-                  cy={node.cy}
-                  r={30 + scaleFactor * 30}
+                  cx={node.cx} cy={node.cy}
+                  r={30 + sf * 30}
                   fill={node.type === "unnamed" ? "rgba(244, 63, 94, 0.05)" : "rgba(251, 191, 36, 0.04)"}
                   stroke={node.type === "unnamed" ? "rgba(244, 63, 94, 0.15)" : "rgba(251, 191, 36, 0.12)"}
                   strokeWidth="1"
-                  style={{ transformOrigin: `${node.cx}px ${node.cy}px` }}
-                  className="animate-pulse"
+                  style={{ animation: "pulse 2.5s infinite ease-in-out" }}
                 />
               );
             })}
           </g>
         )}
 
-
-        {/* ================= INTERACTIVE HOTSPOT NODES ================= */}
-        
-        {/* Hotspot Nodes (Named Junctions) */}
-        <g id="named-nodes" opacity={namedNodesOpacity} style={{ transition: "opacity 0.6s ease" }}>
-          {MAP_NODES.filter(n => n.type === "named").map((node) => {
+        {/* NAMED JUNCTION HOTSPOTS — hover effect kept */}
+        <g opacity={namedNodesOpacity} style={{ transition: "opacity 0.6s ease" }}>
+        <g id="named-nodes" style={revealAnim(3000)}>
+          {MAP_NODES.filter(n => n.type === "named").map(node => {
             const matches = matchesSearch(node.name) || matchesSearch(node.station);
             const isHovered = hoveredNode?.id === node.id;
             return (
-              <g 
-                key={node.id} 
-                style={{ cursor: "pointer", transition: "opacity 0.3s" }}
+              <g
+                key={node.id}
+                style={{ cursor: "pointer" }}
                 onMouseEnter={() => setHoveredNode(node)}
                 onMouseLeave={() => setHoveredNode(null)}
                 opacity={matches ? 1 : 0.15}
               >
-                {/* External glow dot */}
-                <circle cx={node.cx} cy={node.cy} r="8" fill="var(--accent-yellow)" opacity={isHovered ? "0.6" : "0.3"} className={isHovered ? "animate-ping" : ""} style={{ transformOrigin: `${node.cx}px ${node.cy}px` }} />
-                {/* Core interactive dot */}
-                <circle 
-                  cx={node.cx} 
-                  cy={node.cy} 
-                  r={isHovered ? "6" : "4.5"} 
-                  fill="var(--accent-yellow)" 
-                  stroke="#090D16" 
-                  strokeWidth="1.5" 
-                  style={{ transition: "r 0.2s, fill 0.2s" }}
+                {/* Outer glow — expands smoothly on hover */}
+                <circle
+                  cx={node.cx} cy={node.cy}
+                  r={isHovered ? 11 : 8}
+                  fill="var(--accent-yellow)"
+                  opacity={isHovered ? 0.35 : 0.15}
+                  style={{ transition: "r 0.2s ease, opacity 0.2s ease" }}
                 />
-                <text 
-                  x={node.cx + 10} 
-                  y={node.cy + 4} 
-                  fill="var(--text-secondary)" 
-                  fontFamily="var(--font-jetbrains)" 
-                  fontSize="9" 
-                  opacity={isHovered ? "1" : "0.75"}
+                {/* Core dot */}
+                <circle
+                  cx={node.cx} cy={node.cy}
+                  r={isHovered ? 6 : 4.5}
+                  fill="var(--accent-yellow)"
+                  stroke="#090D16"
+                  strokeWidth="1.5"
+                  style={{ transition: "r 0.2s ease" }}
+                />
+                <text
+                  x={node.cx + 10} y={node.cy + 4}
+                  fill="var(--text-secondary)"
+                  fontFamily="var(--font-jetbrains)"
+                  fontSize="9"
+                  opacity={isHovered ? 1 : 0.75}
                   fontWeight={isHovered ? "bold" : "normal"}
+                  style={{ pointerEvents: "none" }}
                 >
                   {node.name.split("-")[1]?.trim() || node.name}
                 </text>
@@ -838,42 +583,51 @@ export default function InteractiveMap({ scrollProgress, currentSlide }: Interac
             );
           })}
         </g>
+        </g>
 
-        {/* DBSCAN Hotspots (Unnamed Hotspots) */}
-        <g id="unnamed-nodes" opacity={unnamedNodesOpacity} style={{ transition: "opacity 0.6s ease" }}>
-          {MAP_NODES.filter(n => n.type === "unnamed").map((node) => {
+        {/* DBSCAN UNNAMED HOTSPOTS — hover effect kept */}
+        <g opacity={unnamedNodesOpacity} style={{ transition: "opacity 0.6s ease" }}>
+        <g id="unnamed-nodes" style={revealAnim(3200)}>
+          {MAP_NODES.filter(n => n.type === "unnamed").map(node => {
             const matches = matchesSearch(node.name) || matchesSearch(node.station);
             const isHovered = hoveredNode?.id === node.id;
             return (
-              <g 
-                key={node.id} 
-                style={{ cursor: "pointer", transition: "opacity 0.3s" }}
+              <g
+                key={node.id}
+                style={{ cursor: "pointer" }}
                 onMouseEnter={() => setHoveredNode(node)}
                 onMouseLeave={() => setHoveredNode(null)}
                 opacity={matches ? 1 : 0.15}
               >
-                {/* Pulsing Alert Ring */}
-                <circle cx={node.cx} cy={node.cy} r="12" fill="none" stroke="var(--accent-rose)" strokeWidth="1" opacity={isHovered ? "0.8" : "0.4"} className="status-dot" style={{ animation: "pulse 1.8s infinite ease-in-out" }} />
-                {/* Outer glow dot */}
-                <circle cx={node.cx} cy={node.cy} r="8" fill="var(--accent-rose)" opacity={isHovered ? "0.6" : "0.4"} />
-                {/* Core interactive dot */}
-                <circle 
-                  cx={node.cx} 
-                  cy={node.cy} 
-                  r={isHovered ? "6.5" : "5"} 
-                  fill="var(--accent-rose)" 
-                  stroke="#090D16" 
-                  strokeWidth="1.5" 
+                {/* Alert ring — expands smoothly on hover */}
+                <circle
+                  cx={node.cx} cy={node.cy}
+                  r={isHovered ? 14 : 11}
+                  fill="none"
+                  stroke="var(--accent-rose)"
+                  strokeWidth="1"
+                  opacity={isHovered ? 0.6 : 0.3}
+                  style={{ transition: "r 0.2s ease, opacity 0.2s ease" }}
                 />
-                {/* Tag identifier */}
-                <text 
-                  x={node.cx + 10} 
-                  y={node.cy + 4} 
-                  fill="var(--accent-rose)" 
-                  fontFamily="var(--font-jetbrains)" 
-                  fontSize="9" 
+                {/* Outer glow */}
+                <circle cx={node.cx} cy={node.cy} r="8" fill="var(--accent-rose)" opacity={isHovered ? 0.5 : 0.35} style={{ transition: "opacity 0.2s" }} />
+                {/* Core dot */}
+                <circle
+                  cx={node.cx} cy={node.cy}
+                  r={isHovered ? 6.5 : 5}
+                  fill="var(--accent-rose)"
+                  stroke="#090D16"
+                  strokeWidth="1.5"
+                  style={{ transition: "r 0.2s ease" }}
+                />
+                <text
+                  x={node.cx + 10} y={node.cy + 4}
+                  fill="var(--accent-rose)"
+                  fontFamily="var(--font-jetbrains)"
+                  fontSize="9"
                   fontWeight="bold"
-                  opacity={isHovered ? "1" : "0.85"}
+                  opacity={isHovered ? 1 : 0.85}
+                  style={{ pointerEvents: "none" }}
                 >
                   {node.name.split("(")[0].trim()}
                 </text>
@@ -881,56 +635,23 @@ export default function InteractiveMap({ scrollProgress, currentSlide }: Interac
             );
           })}
         </g>
+        </g>
 
-
-        {/* ================= INTERACTIVE POINTS OF INTEREST (POIs) ================= */}
-        
-        {currentSlide < 4 && (
-          <g id="poi-nodes">
-            {POI_NODES.map((poi) => {
+        {/* POI MARKERS — no hover effect, static display only */}
+        {currentSlide < 5 && (
+          <g id="poi-nodes" style={{ pointerEvents: "none", ...revealAnim(3400) }}>
+            {POI_NODES.map(poi => {
               const matches = matchesSearch(poi.name) || matchesSearch(poi.details);
-              const isHovered = hoveredPOI?.id === poi.id;
               return (
-                <g 
-                  key={poi.id}
-                  className="map-poi-group"
-                  style={{ "--poi-color": poi.color } as React.CSSProperties}
-                  onMouseEnter={() => setHoveredPOI(poi)}
-                  onMouseLeave={() => setHoveredPOI(null)}
-                  opacity={matches ? 1 : 0.1}
-                >
-                  {/* POI Marker Circle */}
-                  <circle 
-                    cx={poi.cx}
-                    cy={poi.cy}
-                    r="8"
-                    fill={poi.color}
-                    stroke="#ffffff"
-                    strokeWidth="1"
-                    className="map-poi-circle"
-                  />
-                  {/* POI Category Icon */}
-                  <foreignObject 
-                    x={poi.cx - 6} 
-                    y={poi.cy - 6} 
-                    width="12" 
-                    height="12" 
-                    style={{ pointerEvents: "none" }}
-                  >
+                <g key={poi.id} opacity={matches ? 0.85 : 0.08}>
+                  <circle cx={poi.cx} cy={poi.cy} r="8" fill={poi.color} stroke="#ffffff" strokeWidth="1" />
+                  <foreignObject x={poi.cx - 6} y={poi.cy - 6} width="12" height="12" style={{ pointerEvents: "none" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
                       {renderPoiIcon(poi.type)}
                     </div>
                   </foreignObject>
-                  
-                  {/* POI Label (renders if zoomed in or hovered) */}
-                  {(manualZoom >= 1.25 || isHovered) && (
-                    <text 
-                      x={poi.cx}
-                      y={poi.cy + 16}
-                      textAnchor="middle"
-                      className="map-poi-label"
-                      style={{ fontSize: isHovered ? "8.5px" : "7.5px", fontWeight: isHovered ? "bold" : 500 }}
-                    >
+                  {manualZoom >= 1.25 && (
+                    <text x={poi.cx} y={poi.cy + 16} textAnchor="middle" className="map-poi-label" style={{ fontSize: "7.5px" }}>
                       {poi.name}
                     </text>
                   )}
