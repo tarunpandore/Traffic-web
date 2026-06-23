@@ -7,11 +7,11 @@
 
 :root {
   /* Color Palette - Dark void default */
-  --bg-canvas: #090D16;
-  --bg-surface: #0f131c;
-  --bg-surface-bright: #353943;
-  --bg-surface-low: #181b25;
-  --bg-surface-lowest: #0a0e17;
+  --bg-canvas: #050505;
+  --bg-surface: #0d0d0d;
+  --bg-surface-bright: #262626;
+  --bg-surface-low: #121212;
+  --bg-surface-lowest: #070707;
   
   --text-primary: #dfe2ef;
   --text-secondary: #d3c5ac;
@@ -21,7 +21,7 @@
   --accent-rose: #f43f5e;        /* Choke Rose/Red */
   --accent-blue: #0ea5e9;        /* Systemic Blue */
   
-  --border-wireframe: #1E293B;
+  --border-wireframe: #262626;
   --border-glass: rgba(255, 255, 255, 0.05);
   
   /* Fonts */
@@ -29,16 +29,16 @@
   --font-jetbrains: var(--font-geist-mono), Courier, monospace;
 
   /* Map Design System - Dark Mode */
-  --map-water: #0d1e30;
-  --map-water-stroke: #14283c;
-  --map-park: #12241b;
-  --map-park-stroke: #1a3327;
+  --map-water: #17171d;
+  --map-water-stroke: #22222a;
+  --map-park: #141714;
+  --map-park-stroke: #1e221e;
   --map-road-highway: #d97706;
   --map-road-highway-glow: rgba(217, 119, 6, 0.15);
-  --map-road-major: #1e293b;
-  --map-road-minor: #0f172a;
-  --map-building: #0a0f1d;
-  --map-building-stroke: #151c2e;
+  --map-road-major: #1e1e1e;
+  --map-road-minor: #0d0d0d;
+  --map-building: #080808;
+  --map-building-stroke: #131313;
   --map-metro: #8b5cf6;
   --map-metro-stroke: rgba(139, 92, 246, 0.4);
 }
